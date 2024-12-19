@@ -23,5 +23,24 @@
 ### 1. Клонирование репозитория
 
 ```bash
-git clone https://github.com/ваш-репозиторий/ваш-проект.git
-cd ваш-проект
+git clone https://github.com/Katachy74/TGBOT.git
+cd
+
+2. Создайте виртуальное окружение и установите зависимости:
+    ```bash
+    python -m venv venv
+    source venv/bin/activate  # На Windows используйте `venv\Scripts\activate`
+    pip install -r requirements.txt
+    ```
+
+3. Настройте переменные окружения:
+    ```bash
+    cp .env.example .env
+    ```
+
+4. Запустите приложение:
+    ```bash
+    python app.py
+    ```
+
+5. Откройте браузер и перейдите по адресу `http://127.0.0.1:5000/`.
