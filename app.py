@@ -11,22 +11,18 @@ import plotly.graph_objs as go
 import plotly.io as pio
 from config import BOT_TOKEN
 
-# Настройка логирования
 logging.basicConfig(level=logging.INFO)
 
-# Инициализация Telegram-бота
 bot = Bot(token=BOT_TOKEN)
 storage = MemoryStorage()
 dp = Dispatcher(bot, storage=storage)
 
-# Состояния для машины состояний
 class WeatherForm(StatesGroup):
     start_point = State()
     end_point = State()
     intermediate_points = State()
     days = State()
 
-# Команда /start
 @dp.message_handler(commands=['start'])
 async def cmd_start(message: types.Message):
     """
@@ -35,7 +31,6 @@ async def cmd_start(message: types.Message):
     await message.answer("Привет! Я бот для прогноза погоды по маршруту. "
                          "Используй команду /weather, чтобы узнать погоду для начальной, конечной и промежуточных точек маршрута.")
 
-# Команда /help
 @dp.message_handler(commands=['help'])
 async def cmd_help(message: types.Message):
     """
@@ -46,7 +41,6 @@ async def cmd_help(message: types.Message):
                          "/help - Справка по командам\n"
                          "/weather - Получить прогноз погоду для маршрута")
 
-# Команда /weather
 @dp.message_handler(commands=['weather'])
 async def cmd_weather(message: types.Message):
     """
@@ -55,36 +49,33 @@ async def cmd_weather(message: types.Message):
     await message.answer("Введите начальную точку маршрута:")
     await WeatherForm.start_point.set()
 
-# Обработка начальной точки
 @dp.message_handler(state=WeatherForm.start_point)
 async def process_start_point(message: types.Message, state: FSMContext):
     """
     Обработка ввода начальной точки маршрута.
     """
-    start_point = format_city_name(message.text)  # Форматируем город
+    start_point = format_city_name(message.text)  
     await state.update_data(start_point=start_point)
     await message.answer("Введите конечную точку маршрута:")
     await WeatherForm.next()
 
-# Обработка конечной точки
 @dp.message_handler(state=WeatherForm.end_point)
 async def process_end_point(message: types.Message, state: FSMContext):
     """
     Обработка ввода конечной точки маршрута.
     """
-    end_point = format_city_name(message.text)  # Форматируем город
+    end_point = format_city_name(message.text)  
     await state.update_data(end_point=end_point)
     await message.answer("Введите промежуточные точки маршрута (через запятую, если их несколько, или введите 'нет', если их нет):")
     await WeatherForm.next()
 
-# Обработка промежуточных точек
 @dp.message_handler(state=WeatherForm.intermediate_points)
 async def process_intermediate_points(message: types.Message, state: FSMContext):
     """
     Обработка ввода промежуточных точек маршрута.
     """
     intermediate_points = message.text.strip().lower()
-    if intermediate_points.lower() == "нет":  # Если пользователь ввел "нет"
+    if intermediate_points.lower() == "нет":  
         intermediate_points = []
     else:
         intermediate_points = [format_city_name(point.strip()) for point in intermediate_points.split(',') if point.strip()]
@@ -96,7 +87,6 @@ async def process_intermediate_points(message: types.Message, state: FSMContext)
     await message.answer("Выберите временной интервал прогноза:", reply_markup=keyboard)
     await WeatherForm.next()
 
-# Обработка выбора временного интервала
 @dp.callback_query_handler(lambda c: c.data.isdigit(), state=WeatherForm.days)
 async def process_days(callback_query: types.CallbackQuery, state: FSMContext):
     """
@@ -109,10 +99,8 @@ async def process_days(callback_query: types.CallbackQuery, state: FSMContext):
     intermediate_points = data['intermediate_points']
     days = data['days']
 
-    # Формируем маршрут
     locations = [start_point, *intermediate_points, end_point]
 
-    # Получаем прогноз погоды
     try:
         forecast = get_weather_forecast(locations, days)
         response = "Прогноз погоды для маршрута:\n"
@@ -124,8 +112,6 @@ async def process_days(callback_query: types.CallbackQuery, state: FSMContext):
                 response += f"💧 Вероятность осадков: {info['precipitation_probability']}%\n"
                 response += f"💨 Скорость ветра: {info['wind_speed']} м/с\n"
 
-            # Создаем графики для текущей локации
-            # График температуры
             fig_temp = go.Figure()
             fig_temp.add_trace(go.Scatter(
                 x=[day for day in data.keys()],
@@ -147,7 +133,6 @@ async def process_days(callback_query: types.CallbackQuery, state: FSMContext):
                 template="plotly_white"
             )
 
-            # График вероятности осадков
             fig_precip = go.Figure()
             fig_precip.add_trace(go.Bar(
                 x=[day for day in data.keys()],
@@ -162,7 +147,6 @@ async def process_days(callback_query: types.CallbackQuery, state: FSMContext):
                 template="plotly_white"
             )
 
-            # График скорости ветра
             fig_wind = go.Figure()
             fig_wind.add_trace(go.Scatter(
                 x=[day for day in data.keys()],
@@ -178,7 +162,6 @@ async def process_days(callback_query: types.CallbackQuery, state: FSMContext):
                 template="plotly_white"
             )
 
-            # Сохраняем графики в файлы
             temp_path = f"{location}_temperature.png"
             precip_path = f"{location}_precipitation.png"
             wind_path = f"{location}_wind.png"
@@ -194,16 +177,13 @@ async def process_days(callback_query: types.CallbackQuery, state: FSMContext):
             with open(wind_path, 'rb') as photo:
                 await bot.send_photo(callback_query.message.chat.id, photo)
 
-            # Удаляем временные файлы
             os.remove(temp_path)
             os.remove(precip_path)
             os.remove(wind_path)
 
-        # Генерируем ссылку на маршрут с помощью GraphHopper
         try:
             coordinates = [get_coordinates(location) for location in locations]
             if all(coordinates):
-                # Генерируем ссылку на маршрут
                 route_url = generate_graphhopper_route_url(coordinates)
                 await bot.send_message(callback_query.message.chat.id, f"Ссылка на маршрут: {route_url}")
             else:
@@ -217,6 +197,5 @@ async def process_days(callback_query: types.CallbackQuery, state: FSMContext):
 
     await state.finish()
 
-# Запуск Telegram-бота
 if __name__ == '__main__':
     executor.start_polling(dp, skip_updates=True)
